@@ -31,7 +31,6 @@ export const CONTRACT_ERROR_MESSAGES: Record<ContractErrorCode, string> = {
   [ContractErrorCode.CycleNotReady]: "This cycle isn't ready for payout yet.",
   [ContractErrorCode.InvalidParams]: "Invalid circle parameters.",
   [ContractErrorCode.NotAuthorized]: "You're not authorized to do that.",
-  [ContractErrorCode.Overflow]: "The contract couldn't complete that — an amount overflowed its limit.",
   [ContractErrorCode.Overflow]: "The circle's pot overflowed.",
 };
 
