@@ -1,6 +1,51 @@
-// Contract test tests.
-import { describe, expect, it, vi } from "vitest";
-import { sendWithRetry } from "./contract";
+// Contract tests.
+import { TransactionBuilder } from "@stellar/stellar-sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { sendWithRetry, server, submitSignedTx } from "./contract";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe("submitSignedTx polling", () => {
+  function mockSubmission() {
+    vi.spyOn(TransactionBuilder, "fromXDR").mockReturnValue({} as never);
+    vi.spyOn(server, "sendTransaction").mockResolvedValue({
+      status: "PENDING",
+      hash: "abc",
+    } as never);
+  }
+
+  it("continues polling after a transient getTransaction error", async () => {
+    vi.useFakeTimers();
+    mockSubmission();
+    const getTransaction = vi
+      .spyOn(server, "getTransaction")
+      .mockRejectedValueOnce(new Error("RPC temporarily unavailable"))
+      .mockResolvedValueOnce({ status: "SUCCESS", returnValue: undefined } as never);
+
+    const submission = submitSignedTx("signed-xdr");
+    await vi.advanceTimersByTimeAsync(1500);
+
+    await expect(submission).resolves.toBeUndefined();
+    expect(getTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws the final polling error after exhausting the attempt budget", async () => {
+    vi.useFakeTimers();
+    mockSubmission();
+    const pollingError = new Error("RPC connection reset");
+    const getTransaction = vi.spyOn(server, "getTransaction").mockRejectedValue(pollingError);
+
+    const submission = submitSignedTx("signed-xdr");
+    const rejection = expect(submission).rejects.toBe(pollingError);
+    await vi.advanceTimersByTimeAsync(39 * 1500);
+
+    await rejection;
+    expect(getTransaction).toHaveBeenCalledTimes(40);
+  });
+});
 
 describe("sendWithRetry (#150)", () => {
   function mockServer(sendTransaction: (...args: unknown[]) => unknown) {

@@ -233,12 +233,23 @@ export async function submitSignedTx<T = unknown>(signedXdr: string): Promise<T 
   }
 
   const maxAttempts = 40; // ~60s at 1.5s/poll — a dropped tx should never hang the UI forever
-  let result = await server.getTransaction(sent.hash);
-  for (let attempt = 0; result.status === "NOT_FOUND" && attempt < maxAttempts; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    result = await server.getTransaction(sent.hash);
+  let result: rpc.Api.GetTransactionResponse | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      result = await server.getTransaction(sent.hash);
+      if (result.status !== "NOT_FOUND") {
+        break;
+      }
+    } catch (err) {
+      if (attempt === maxAttempts - 1) {
+        throw err;
+      }
+    }
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
   }
-  if (result.status === "NOT_FOUND") {
+  if (!result || result.status === "NOT_FOUND") {
     throw new ContractCallError(`Transaction ${sent.hash} was not found on-chain after ${maxAttempts} polls — it may have been dropped.`);
   }
   if (result.status !== "SUCCESS") {
