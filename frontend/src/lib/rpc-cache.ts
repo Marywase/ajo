@@ -98,8 +98,8 @@ class RPCCache {
 export const rpcCache = new RPCCache(30000); // 30 second TTL
 
 /**
- * Wrapper for hasContributed with caching.
- * Use this instead of calling hasContributed directly for automatic memoization.
+ * Cache confirmed contributions only: they cannot revert within a cycle.
+ * Recheck unpaid members on every refresh so other members' payments are visible.
  */
 export async function hasContributedCached(
   hasContributedFn: (circleId: bigint, cycle: number, member: string) => Promise<boolean>,
@@ -114,7 +114,9 @@ export async function hasContributedCached(
   }
 
   const result = await hasContributedFn(circleId, cycle, member);
-  rpcCache.set(key, result);
+  if (result) {
+    rpcCache.set(key, result);
+  }
   return result;
 }
 
