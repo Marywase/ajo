@@ -30,6 +30,11 @@ vi.mock("@/components/footer", () => ({ Footer: () => null }));
 
 vi.mock("@/context/wallet-context", () => ({ useWallet: vi.fn() }));
 
+// Keep page rendering independent of live ledger reads and their cache.
+vi.mock("@/lib/ledger-time", () => ({
+  getLedgerNowSecs: vi.fn().mockResolvedValue(1_700_000_000),
+}));
+
 // Delegating to the mocked contract reads keeps the page's caching wrapper
 // transparent while still letting each test control the underlying values.
 vi.mock("@/lib/rpc-cache", () => ({
